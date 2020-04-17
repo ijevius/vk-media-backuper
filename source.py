@@ -9,28 +9,30 @@ import urllib.request
 VK_ACCESS_TOKEN = ""
 VK_BASE_API_URL = "https://api.vk.com/method/"
 VK_API_VERSION = "5.103" #don't change, work was tested only for that.
+DIRS_SEPARATOR = '\\' if "Windows" in platform.system() else '//'
 
 def VK_getAllUrlsFromAlbum(album_id):
     all_photos = set()
     BUCKET_SIZE = 1000
     '''Count of photos in one step. Max is 1000.
     Don't set in too small -- this cause many API requests, so VK will return an error. 25 is too small. 
-    id -- current VK user or group id; rev -- from latest; photo_sizes=0, latest item is biggest size,
+    id -- current VK user or group id; rev -- from oldest; photo_sizes=0, latest item is biggest size,
     even VK says size['o'] is original; offset M -- skip M items from start'''
     #print(albumResponse['response']['items'])
-    getFromAlbumReq = f"{VK_BASE_API_URL}photos.get?owner_id={id}&album_id={album_id}&rev=1&photo_sizes=0&count={BUCKET_SIZE}&offset=0&v={VK_API_VERSION}&access_token={VK_ACCESS_TOKEN}"
+    getFromAlbumReq = f"{VK_BASE_API_URL}photos.get?owner_id={id}&album_id={album_id}&rev=0&photo_sizes=0&count={BUCKET_SIZE}&offset=0&v={VK_API_VERSION}&access_token={VK_ACCESS_TOKEN}"
     albumResponse = json.loads(urllib.request.urlopen(getFromAlbumReq).read())
     try:
         albumLen = albumResponse["response"]["count"]
         albumPartUrls = [item['sizes'][-1]["url"] for item in albumResponse['response']['items']]
         all_photos.update(albumPartUrls)
     except:
-        print(f"Can't parse it:\n{albumResponse}")
+        print(f"32: Can't parse it:\n{albumResponse}")
     steps = (int(albumLen/BUCKET_SIZE)+1) if albumLen > BUCKET_SIZE else 1
     if steps > 1:
         for i in range(1, steps):
             offset = i*BUCKET_SIZE
-            getFromAlbumReq = f"{VK_BASE_API_URL}photos.get?owner_id={id}&album_id={album_id}&rev=1&photo_sizes=0&count={BUCKET_SIZE}&offset={offset}&v={VK_API_VERSION}&access_token={VK_ACCESS_TOKEN}"
+            #wall -- to get all photos from wall (actually for club)
+            getFromAlbumReq = f"{VK_BASE_API_URL}photos.get?owner_id={id}&album_id={album_id}&rev=0&photo_sizes=0&count={BUCKET_SIZE}&offset={offset}&v={VK_API_VERSION}&access_token={VK_ACCESS_TOKEN}"
             albumResponse = json.loads(urllib.request.urlopen(getFromAlbumReq).read())
             bucket_items = albumResponse["response"]["items"]
             bucket_urls = [item['sizes'][-1]["url"] for item in bucket_items]
@@ -46,13 +48,12 @@ def createDirIfNotExists(dirName):
         except:
             print(f"dcreat: Can't create {dirName}")
     else:
-        print(f"dcreat: Dir {os.getcwd()}{getDirsSeparator()}{dirName} is already exists")
+        print(f"dcreat: Dir {os.getcwd()}{DIRS_SEPARATOR}{dirName} is already exists")
 
-def getDirsSeparator():
-    return '\\' if "Windows" in platform.system() else '//'
-
-def makeNamePrettyForWin(str):
-    not_allowed = '/\:*?"|<>'
+def makeNamePretty(str):
+    not_allowed = '!@#$&~%*()[]{}\'"\:;><`' #and space?
+    if "Windows" in platform.system():
+        not_allowed = '/\:*?"|<>'
     for sym in not_allowed:
         if sym in str:
             str = str.replace(sym, "")
@@ -82,9 +83,10 @@ if id > 0:
     getUserNameReq = f"{VK_BASE_API_URL}users.get?user_ids={id}&v=5.103&access_token={VK_ACCESS_TOKEN}"
     un_name = json.loads(urllib.request.urlopen(getUserNameReq).read())["response"][0]['first_name'] + " " + json.loads(urllib.request.urlopen(getUserNameReq).read())["response"][0]['last_name']
     ITEM_NAME = un_name
-    is_closed = json.loads(urllib.request.urlopen(getUserNameReq).read())["response"][0]['is_closed']
+    #is_closed = json.loads(urllib.request.urlopen(getUserNameReq).read())["response"][0]['is_closed']
     can_access_closed = json.loads(urllib.request.urlopen(getUserNameReq).read())["response"][0]['can_access_closed']
-    if is_closed and not can_access_closed:
+    #if is_closed and not can_access_closed:
+    if not can_access_closed:
         print("Profile is closed")
         sys.exit()
     print(f"Saving user: {ITEM_NAME}")
@@ -96,7 +98,7 @@ else:
     print("No-no-no")
     sys.exit(0)
 
-FOLDER_FOR_ITEM = f"{makeNamePrettyForWin(ITEM_NAME)} id={id}"
+FOLDER_FOR_ITEM = f"{makeNamePretty(ITEM_NAME)} id={id}"
 createDirIfNotExists(FOLDER_FOR_ITEM)
 getAllAlbumsReq = f"{VK_BASE_API_URL}photos.getAlbums?owner_id={id}&v={VK_API_VERSION}&need_covers=1&photo_sizes=0&need_system=1&access_token={VK_ACCESS_TOKEN}"
 contents = urllib.request.urlopen(getAllAlbumsReq).read()
@@ -105,23 +107,26 @@ res = json.loads(contents)
 print(f"{res['response']['count']} albums")
 try:
     items = res["response"]["items"]
+    #print(items)
     for album in items:
-        albums_list.update({album['id']:f"{os.getcwd()}{getDirsSeparator()}{FOLDER_FOR_ITEM}{getDirsSeparator()}{makeNamePrettyForWin(album['title'])} id={album['id']}{getDirsSeparator()}"})
+        albums_list.update({album['id']:f"{os.getcwd()}{DIRS_SEPARATOR}{FOLDER_FOR_ITEM}{DIRS_SEPARATOR}{makeNamePretty(album['title'])} id={album['id']}{DIRS_SEPARATOR}"})
         print(f"{album['title']} id={album['id']} photos={album['size']}")
-        createDirIfNotExists(f"{os.getcwd()}{getDirsSeparator()}{FOLDER_FOR_ITEM}{getDirsSeparator()}{makeNamePrettyForWin(album['title'])} id={album['id']}\\")
+        createDirIfNotExists(f"{os.getcwd()}{DIRS_SEPARATOR}{FOLDER_FOR_ITEM}{DIRS_SEPARATOR}{makeNamePretty(album['title'])} id={album['id']}\\")
 except:
-    print(f"Can't parse it:\n{res}")
+    print(f"118: Can't parse it:\n{res}")
 
 #print(albums_list)
 print(albums_list.items())
 
 total = 0
-for al in albums_list.items():
+for album in albums_list.items():
     start = int(round(time.time() * 1000))
-    for l in VK_getAllUrlsFromAlbum(al[0]):
-        wgetDownload(l, al[1])
+    #skip saved photos: check al[0]==-15
+    if album[0] == -15: continue
+    for link in VK_getAllUrlsFromAlbum(album[0]):
+        wgetDownload(link, album[1])
     end = int(round(time.time() * 1000))
     total += (end-start)/1000
     print(f"for {(end-start)/1000} sec")
 
-print(f"{total} sec passed")
+print(f"{total} sec per profile")
