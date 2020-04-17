@@ -28,6 +28,7 @@ def VK_getAllUrlsFromAlbum(album_id):
         all_photos.update(albumPartUrls)
     except:
         print(f"urlscollector: Can't parse it:\n{albumResponse}")
+        sys.exit(0)
     steps = (int(albumLen/BUCKET_SIZE)+1) if albumLen > BUCKET_SIZE else 1
     if steps > 1:
         for i in range(1, steps):
@@ -116,7 +117,7 @@ if id > 0:
     if friends["count"] > 5000:
         next_part = f"{VK_BASE_API_URL}friends.get?user_id={id}&oder=hints&offset=5000&fields=city&name_case=nom&v={VK_API_VERSION}&access_token={VK_ACCESS_TOKEN}"
         part = json.loads(urllib.request.urlopen(next_part).read())['response']['items']
-        fr_list_buffer.append(part)
+        fr_list_buffer.append(part) #TODO write friends from here
     f = open(f'{os.getcwd()}{DIRS_SEPARATOR}{FOLDER_FOR_ITEM}{DIRS_SEPARATOR}{friends_file_name}', 'a', encoding='utf-8')
     print(fr_list_buffer.strip())
     f.write(fr_list_buffer)
@@ -126,6 +127,7 @@ elif id < 0:
     getGroupInfoReq = f"{VK_BASE_API_URL}groups.getById?group_id={abs(id)}&fields=can_see_all_posts&v={VK_API_VERSION}&access_token={VK_ACCESS_TOKEN}"
     ITEM_NAME = json.loads(urllib.request.urlopen(getGroupInfoReq).read())["response"][0]['name']
     FOLDER_FOR_ITEM = f"{makeNamePretty(ITEM_NAME)} id={id}"
+    createDirIfNotExists(FOLDER_FOR_ITEM)
     print(f"Saving club: {ITEM_NAME}")
 else:
     print("No-no-no")
@@ -153,6 +155,7 @@ total = 0
 for album in albums_list.items():
     start = int(round(time.time() * 1000))
     #skip saved photos: check al[0]==-15
+    #photos with me -- VK return error if empty
     if album[0] == -15 or album[0] == -9000: continue
     for link in VK_getAllUrlsFromAlbum(album[0]):
         wgetDownload(link, album[1])
