@@ -1,8 +1,5 @@
 # vk-media-backuper
 
-## Requries
-wget, urllib.request, progress. Use: `pip install`.
-
 ## Notes
 Sure your disk has enouth space.
 Be careful! Frequent writes to disk may may damage it. 
